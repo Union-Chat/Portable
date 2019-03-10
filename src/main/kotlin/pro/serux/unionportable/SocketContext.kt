@@ -3,6 +3,9 @@ package pro.serux.unionportable
 import io.ktor.http.cio.websocket.DefaultWebSocketSession
 import io.ktor.http.cio.websocket.Frame
 import io.ktor.http.cio.websocket.readText
+import kotlinx.coroutines.channels.consumeEach
+import kotlinx.coroutines.channels.mapNotNull
+import kotlinx.coroutines.isActive
 import org.json.JSONObject
 
 class SocketContext(
@@ -10,8 +13,12 @@ class SocketContext(
     private val socketSession: DefaultWebSocketSession
 ) {
 
+    public var isOpen = true
+        private set
+
     suspend fun setup() {
         socketSession.outgoing.invokeOnClose {
+            isOpen = false
             server.destroyContext(this)
         }
 
@@ -27,14 +34,8 @@ class SocketContext(
     }
 
     private suspend fun startListening() {
-        while (true) {
-            val frame = socketSession.incoming.receive()
-
-            when (frame) {
-                is Frame.Text -> {
-                    handleMessage(frame.readText())
-                }
-            }
+        socketSession.incoming.mapNotNull { it as? Frame.Text }.consumeEach {
+            handleMessage(it.readText())
         }
     }
 
