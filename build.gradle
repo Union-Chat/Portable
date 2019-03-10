@@ -21,6 +21,7 @@ dependencies {
     compile 'org.xerial:sqlite-jdbc:3.25.2'
     compile 'com.zaxxer:HikariCP:3.3.1'
     compile 'org.json:json:20180813'
+    compile 'at.favre.lib:bcrypt:0.7.0'
 }
 
 compileKotlin {

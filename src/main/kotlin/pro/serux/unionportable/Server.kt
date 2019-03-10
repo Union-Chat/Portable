@@ -12,12 +12,11 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.websocket.WebSockets
 import io.ktor.websocket.webSocket
-
-
-private val contexts = hashSetOf<SocketContext>()
-
+import org.json.JSONObject
 
 class Server {
+
+    public val contexts = hashSetOf<SocketContext>()
 
     fun start() {
         embeddedServer(Netty, 6969) {
@@ -31,7 +30,7 @@ class Server {
                         return@webSocket
                     }
                     println("Setting up context")
-                    setupContext(this)
+                    createContext(this)
                 }
 
                 get("/") {
@@ -46,7 +45,7 @@ class Server {
         return header != null && header == "test"
     }
 
-    suspend fun setupContext(session: DefaultWebSocketSession) {
+    suspend fun createContext(session: DefaultWebSocketSession) {
         val context = SocketContext(this, session)
         contexts.add(context)
         context.setup()
@@ -59,13 +58,11 @@ class Server {
 
     suspend fun dispatch(data: String) {
         contexts.forEach {
-            it.send(data)
+            it.send(JSONObject(mapOf(
+                "op" to "broadcast",
+                "d" to data
+            )))
         }
     }
 
-}
-
-fun main() {
-    val server = Server()
-    server.start()
 }

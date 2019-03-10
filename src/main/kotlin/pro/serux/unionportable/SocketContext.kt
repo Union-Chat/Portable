@@ -1,11 +1,8 @@
 package pro.serux.unionportable
 
-import io.ktor.http.cio.websocket.DefaultWebSocketSession
-import io.ktor.http.cio.websocket.Frame
-import io.ktor.http.cio.websocket.readText
+import io.ktor.http.cio.websocket.*
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.channels.mapNotNull
-import kotlinx.coroutines.isActive
 import org.json.JSONObject
 
 class SocketContext(
@@ -13,24 +10,22 @@ class SocketContext(
     private val socketSession: DefaultWebSocketSession
 ) {
 
-    public var isOpen = true
-        private set
-
     suspend fun setup() {
         socketSession.outgoing.invokeOnClose {
-            isOpen = false
             server.destroyContext(this)
         }
 
         startListening()
     }
 
-    suspend fun send(obj: JSONObject) {
-        send(obj.toString())
+    private suspend fun close(code: Short, reason: String) {
+        socketSession.close(CloseReason(code, reason))
     }
 
-    suspend fun send(data: String) {
-        socketSession.outgoing.send(Frame.Text(data))
+    suspend fun send(obj: JSONObject) {
+        socketSession.outgoing.send(
+            Frame.Text(obj.toString())
+        )
     }
 
     private suspend fun startListening() {
@@ -40,18 +35,17 @@ class SocketContext(
     }
 
     private suspend fun handleMessage(d: String) {
-        println(d)
-        val j = JSONObject(d)
+        val json = parseJson(d)
+            ?: return close(4002, "Invalid payload; not a valid JSON object.")
 
-        if (!j.has("op")) {
-            println("Invalid payload - No op key")
-            return
+        if (!json.has("op")) {
+            return close(4002, "Invalid payload; missing op key.")
         }
 
-        val op = j.getString("op")
+        val op = json.getString("op")
 
-        if (op == "fuck") {
-            server.dispatch(j.getString("d"))
+        when (op) {
+            "send" -> server.dispatch(json.getString("d"))
         }
     }
 
