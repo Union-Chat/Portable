@@ -32,7 +32,7 @@ class SocketContext(
 
     private suspend fun startListening() {
         socketSession.incoming.mapNotNull { it as? Frame.Text }.consumeEach {
-            handleMessage(it.readText())
+            //handleMessage(it.readText())
         }
     }
 

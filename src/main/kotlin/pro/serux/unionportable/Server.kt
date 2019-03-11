@@ -1,8 +1,10 @@
 package pro.serux.unionportable
 
 import io.ktor.application.ApplicationCall
+import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
 import io.ktor.application.install
+import io.ktor.features.DefaultHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.cio.websocket.*
 import io.ktor.http.content.files
@@ -27,6 +29,7 @@ import kotlinx.coroutines.channels.mapNotNull
 import org.json.JSONObject
 import pro.serux.unionportable.entities.User
 import java.io.File
+import java.lang.Exception
 import java.net.URLDecoder
 import java.nio.charset.Charset
 import java.util.*
@@ -40,6 +43,14 @@ class Server {
     fun start() {
         embeddedServer(Netty, 6969) {
             install(WebSockets)
+            intercept(ApplicationCallPipeline.Call) {
+                val h = call.request.header("sec-websocket-protocol")
+                if (h != null) {
+                    call.response.header("sec-websocket-protocol", h)
+                }
+
+                this.proceed()
+            }
 
             routing {
                 static("/assets") {
@@ -84,7 +95,10 @@ class Server {
     }
 
     private fun authenticate(call: ApplicationCall): User? {
-        val header = call.request.header("authorization") ?: return null
+        val header = call.request.header("authorization")
+            ?: URLDecoder.decode(call.request.header("sec-websocket-protocol") ?: "", Charset.defaultCharset())
+            ?: return null
+
         return authenticate(header)
     }
 
@@ -92,22 +106,20 @@ class Server {
         val decoded = String(Base64.getDecoder().decode(auth)).split(':')
 
         if (decoded.size != 2) {
-            println(decoded)
+            //println(decoded)
             return null // USERNAME:PASSWORD
         }
 
         val username = decoded[0].split('#')
 
         if (username.size < 2) {
-            println(username)
+            //println(username)
             return null // USERNAME#DISCRIM
         }
 
         if (Database.checkAuthentication(username[0], username[1], decoded[1])) {
             return Database.getUser(username[0], username[1])
         }
-
-        println("auth failed yuh")
 
         return null
     }
