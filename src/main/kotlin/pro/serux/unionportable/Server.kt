@@ -9,6 +9,7 @@ import io.ktor.http.content.files
 import io.ktor.http.content.static
 import io.ktor.request.header
 import io.ktor.request.receiveText
+import io.ktor.response.header
 import io.ktor.response.respond
 import io.ktor.response.respondFile
 import io.ktor.response.respondText
@@ -19,10 +20,17 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.websocket.WebSockets
 import io.ktor.websocket.webSocket
+import kotlinx.coroutines.channels.consume
+import kotlinx.coroutines.channels.consumeEach
+import kotlinx.coroutines.channels.consumes
+import kotlinx.coroutines.channels.mapNotNull
 import org.json.JSONObject
 import pro.serux.unionportable.entities.User
 import java.io.File
+import java.net.URLDecoder
+import java.nio.charset.Charset
 import java.util.*
+import java.util.concurrent.CompletableFuture
 
 class Server {
 
@@ -62,15 +70,8 @@ class Server {
 
                 post("/api/create") {
                     val body = call.receiveText()
-                    try {
-                        val created = Database.createUser(JSONObject(body))
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        call.respond("suc my ass")
-                        return@post
-                    }
 
-                    if (true) {
+                    if (Database.createUser(JSONObject(body))) {
                         call.respondText("Devoxin#0001")
                     } else {
                         call.respondText(JSONObject(mapOf(
@@ -84,22 +85,21 @@ class Server {
 
     private fun authenticate(call: ApplicationCall): User? {
         val header = call.request.header("authorization") ?: return null
-        val parts = header.split(" +".toRegex())
+        return authenticate(header)
+    }
 
-        if (parts.size != 2 || parts[0] != "Basic") {
-            return null // Basic <BASE64-ENCODED STRING>
-        }
-
-        val auth = parts[1]
+    private fun authenticate(auth: String): User? {
         val decoded = String(Base64.getDecoder().decode(auth)).split(':')
 
         if (decoded.size != 2) {
+            println(decoded)
             return null // USERNAME:PASSWORD
         }
 
         val username = decoded[0].split('#')
 
         if (username.size < 2) {
+            println(username)
             return null // USERNAME#DISCRIM
         }
 
