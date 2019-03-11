@@ -24,11 +24,13 @@ data class User(
     }
 
     override fun toJson(): JSONObject {
-        return JSONObject(mapOf(
-            "id" to id,
-            "username" to username,
-            "discriminator" to discriminator
-        ))
+        return JSONObject(
+            mapOf(
+                "id" to id,
+                "username" to username,
+                "discriminator" to discriminator
+            )
+        )
     }
 
     companion object {

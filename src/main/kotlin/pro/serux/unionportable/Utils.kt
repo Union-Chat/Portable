@@ -11,7 +11,7 @@ import org.json.JSONObject
 fun parseJson(data: String): JSONObject? {
     return try {
         JSONObject(data)
-    } catch(e: JSONException) {
+    } catch (e: JSONException) {
         null
     }
 }

@@ -4,15 +4,15 @@ import io.ktor.application.ApplicationCall
 import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
 import io.ktor.application.install
-import io.ktor.features.DefaultHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.cio.websocket.*
+import io.ktor.http.cio.websocket.CloseReason
+import io.ktor.http.cio.websocket.DefaultWebSocketSession
+import io.ktor.http.cio.websocket.close
 import io.ktor.http.content.files
 import io.ktor.http.content.static
 import io.ktor.request.header
 import io.ktor.request.receiveText
 import io.ktor.response.header
-import io.ktor.response.respond
 import io.ktor.response.respondFile
 import io.ktor.response.respondText
 import io.ktor.routing.get
@@ -22,18 +22,12 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.websocket.WebSockets
 import io.ktor.websocket.webSocket
-import kotlinx.coroutines.channels.consume
-import kotlinx.coroutines.channels.consumeEach
-import kotlinx.coroutines.channels.consumes
-import kotlinx.coroutines.channels.mapNotNull
 import org.json.JSONObject
 import pro.serux.unionportable.entities.User
 import java.io.File
-import java.lang.Exception
 import java.net.URLDecoder
 import java.nio.charset.Charset
 import java.util.*
-import java.util.concurrent.CompletableFuture
 
 class Server {
 
@@ -85,9 +79,13 @@ class Server {
                     if (Database.createUser(JSONObject(body))) {
                         call.respondText("Devoxin#0001")
                     } else {
-                        call.respondText(JSONObject(mapOf(
-                            "error" to "GAY"
-                        )).toString(), status = HttpStatusCode.BadRequest)
+                        call.respondText(
+                            JSONObject(
+                                mapOf(
+                                    "error" to "GAY"
+                                )
+                            ).toString(), status = HttpStatusCode.BadRequest
+                        )
                     }
                 }
             }
@@ -137,10 +135,14 @@ class Server {
 
     suspend fun dispatch(data: String) {
         contexts.forEach {
-            it.send(JSONObject(mapOf(
-                "op" to "broadcast",
-                "d" to data
-            )))
+            it.send(
+                JSONObject(
+                    mapOf(
+                        "op" to "broadcast",
+                        "d" to data
+                    )
+                )
+            )
         }
     }
 
