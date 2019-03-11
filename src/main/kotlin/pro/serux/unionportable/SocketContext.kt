@@ -4,10 +4,12 @@ import io.ktor.http.cio.websocket.*
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.channels.mapNotNull
 import org.json.JSONObject
+import pro.serux.unionportable.entities.User
 
 class SocketContext(
     private val server: Server,
-    private val socketSession: DefaultWebSocketSession
+    private val socketSession: DefaultWebSocketSession,
+    private val user: User // Consider moving this to a database call. Could be expensive but who cares LMAO
 ) {
 
     suspend fun setup() {

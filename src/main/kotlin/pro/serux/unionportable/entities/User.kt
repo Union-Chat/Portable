@@ -38,7 +38,11 @@ data class User(
             val name = resultSet.getString("username")
             val discrim = resultSet.getString("discriminator")
             val password = resultSet.getString("password")
-            val serverIds = resultSet.getString("server").split(",").map { it.toLong() }.toMutableSet()
+            val serverIds = resultSet.getString("serverIds")
+                .split(",")
+                .filterNot { it.isEmpty() }
+                .map { it.toLong() }
+                .toMutableSet()
 
             return User(id, name, discrim, password, serverIds)
         }

@@ -70,6 +70,7 @@ class Database(private val server: Server) {
         val user = getUser(username, discriminator) ?: return false
         val result = verifier.verify(password.toCharArray(), user.password.toCharArray())
 
+        println(result.verified)
         return result.verified
     }
 
@@ -81,11 +82,12 @@ class Database(private val server: Server) {
         // TODO: Gen ID+Discrim, check for existing users.
 
         pool.connection.use {
-            val stmt = it.prepareStatement("INSERT INTO users VALUES (?, ?, ?, ?)")
+            val stmt = it.prepareStatement("INSERT INTO users VALUES (?, ?, ?, ?, ?)")
             stmt.setInt(1, 123456789)
             stmt.setString(2, username)
             stmt.setString(3, "0001")
             stmt.setString(4, encryptedPassword)
+            stmt.setString(5, "")
             val succeeded = stmt.execute()
             println(succeeded)
             return@use succeeded
