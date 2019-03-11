@@ -4,12 +4,16 @@ import at.favre.lib.crypto.bcrypt.BCrypt
 import com.zaxxer.hikari.HikariDataSource
 import org.json.JSONObject
 import pro.serux.unionportable.entities.User
+import java.sql.Connection
 
-class Database {
+class Database(private val server: Server) {
     private val pool = HikariDataSource()
 
     private val hasher = BCrypt.withDefaults()
     private val verifier = BCrypt.verifyer()
+
+    public val connection: Connection
+        get() = pool.connection
 
     init {
         if (!pool.isRunning) {
@@ -21,18 +25,33 @@ class Database {
     }
 
     public fun initDatabase() {
-        pool.connection.use {
+        connection.use {
             val stmt = it.createStatement()
 
-            stmt.addBatch("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, discriminator TEXT, password TEXT)")
+            stmt.addBatch("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, discriminator TEXT, password TEXT, serverIds TEXT)")
             stmt.addBatch("CREATE TABLE IF NOT EXISTS guilds (id INTEGER PRIMARY KEY, ownerId INTEGER)")
 
             stmt.executeBatch()
         }
     }
 
+    public fun getUser(id: Long): User? {
+        connection.use {
+            val stmt = it.prepareStatement("SELECT * FROM users WHERE id = ?")
+            stmt.setLong(1, id)
+
+            val result = stmt.executeQuery()
+
+            if (!result.next()) {
+                return null
+            }
+
+            return User.from(result)
+        }
+    }
+
     public fun getUser(username: String, discriminator: String): User? {
-        pool.connection.use {
+        connection.use {
             val stmt = it.prepareStatement("SELECT * FROM users WHERE username = ? AND discriminator = ?")
             stmt.setString(1, username)
             stmt.setString(2, discriminator)
@@ -43,12 +62,7 @@ class Database {
                 return null
             }
 
-            val id = result.getLong("id")
-            val name = result.getString("username")
-            val discrim = result.getString("discriminator")
-            val password = result.getString("password")
-
-            return User(id, name, discrim, password)
+            return User.from(result)
         }
     }
 
@@ -78,5 +92,11 @@ class Database {
         }
 
         return false
+    }
+
+    public fun addServer(userId: Long, serverId: Long) {
+        val u = getUser(userId) ?: return // TODO: Throw
+        u.serverIds.add(serverId)
+        u.save(this)
     }
 }

@@ -23,7 +23,7 @@ import java.io.File
 
 class Server {
 
-    private val Database = Database()
+    private val Database = Database(this)
     public val contexts = hashSetOf<SocketContext>()
 
     fun start() {
