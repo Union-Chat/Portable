@@ -1,5 +1,6 @@
 package pro.serux.unionportable.entities
 
+import io.ktor.auth.Principal
 import org.json.JSONObject
 import pro.serux.unionportable.Database
 import pro.serux.unionportable.interfaces.ISerializable
@@ -11,7 +12,7 @@ data class User(
     public val discriminator: String,
     public val password: String,
     public val serverIds: MutableSet<Long>
-) : ISerializable {
+) : ISerializable, Principal {
 
     override fun save(database: Database) {
         database.connection.use {
@@ -26,7 +27,7 @@ data class User(
     override fun toJson(): JSONObject {
         return JSONObject(
             mapOf(
-                "id" to id,
+                "id" to id.toString(),
                 "username" to username,
                 "discriminator" to discriminator
             )

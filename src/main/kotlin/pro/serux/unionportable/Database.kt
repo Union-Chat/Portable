@@ -5,6 +5,7 @@ import com.zaxxer.hikari.HikariDataSource
 import org.json.JSONObject
 import pro.serux.unionportable.entities.User
 import java.sql.Connection
+import java.util.*
 
 class Database(private val server: Server) {
     private val pool = HikariDataSource()
@@ -33,6 +34,42 @@ class Database(private val server: Server) {
 
             stmt.executeBatch()
         }
+    }
+
+    public fun authenticate(auth: String): User? {
+        val parts = auth.split(" ")
+
+        if (parts.size < 2 || parts[0] != "Basic") {
+            return null
+        }
+
+        val decoded = String(Base64.getDecoder().decode(parts[1])).split(':')
+
+        if (decoded.size != 2) {
+            //println(decoded)
+            return null // USERNAME:PASSWORD
+        }
+
+        val username = decoded[0].split('#')
+
+        if (username.size < 2) {
+            //println(username)
+            return null // USERNAME#DISCRIM
+        }
+
+        if (checkAuthentication(username[0], username[1], decoded[1])) {
+            return getUser(username[0], username[1])
+        }
+
+        return null
+    }
+
+    public fun checkAuthentication(username: String, discriminator: String, password: String): Boolean {
+        val user = getUser(username, discriminator) ?: return false
+        val result = verifier.verify(password.toCharArray(), user.password.toCharArray())
+
+        println(result.verified)
+        return result.verified
     }
 
     public fun getUser(id: Long): User? {
@@ -66,34 +103,24 @@ class Database(private val server: Server) {
         }
     }
 
-    public fun checkAuthentication(username: String, discriminator: String, password: String): Boolean {
-        val user = getUser(username, discriminator) ?: return false
-        val result = verifier.verify(password.toCharArray(), user.password.toCharArray())
-
-        println(result.verified)
-        return result.verified
-    }
-
-    public fun createUser(json: JSONObject): Boolean {
+    public fun createUser(json: JSONObject): String {
         val username = json.getString("username")
         val password = json.getString("password")
         val encryptedPassword = hasher.hashToString(10, password.toCharArray())
 
-        // TODO: Gen ID+Discrim, check for existing users.
+        // TODO: check for existing users.
 
         pool.connection.use {
             val stmt = it.prepareStatement("INSERT INTO users VALUES (?, ?, ?, ?, ?)")
-            stmt.setInt(1, 123456789)
+            stmt.setInt(1, 123456789) // TODO
             stmt.setString(2, username)
-            stmt.setString(3, "0001")
+            stmt.setString(3, "0001") // TODO
             stmt.setString(4, encryptedPassword)
             stmt.setString(5, "")
-            val succeeded = stmt.execute()
-            println(succeeded)
-            return@use succeeded
+            stmt.execute()
         }
 
-        return false
+        return "$username#0001" // TODO
     }
 
     public fun addServer(userId: Long, serverId: Long) {

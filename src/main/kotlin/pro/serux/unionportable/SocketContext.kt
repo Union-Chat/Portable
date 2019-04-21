@@ -12,8 +12,11 @@ import pro.serux.unionportable.entities.User
 class SocketContext(
     private val server: Server,
     private val socketSession: DefaultWebSocketSession,
-    private val user: User // Consider moving this to a database call. Could be expensive but who cares LMAO
+    private val userId: Long
 ) {
+
+    public val user: User
+        get() = server.Database.getUser(userId)!!
 
     suspend fun setup() {
         socketSession.outgoing.invokeOnClose {
@@ -47,9 +50,7 @@ class SocketContext(
             return close(4002, "Invalid payload; missing op key.")
         }
 
-        val op = json.getString("op")
-
-        when (op) {
+        when (json.getString("op")) {
             "send" -> server.dispatch(json.getString("d"))
         }
     }
