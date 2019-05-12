@@ -7,11 +7,11 @@ import pro.serux.unionportable.interfaces.ISerializable
 import java.sql.ResultSet
 
 data class User(
-    public val id: Long,
-    public val username: String,
-    public val discriminator: String,
-    public val password: String,
-    public val serverIds: MutableSet<Long>
+     val id: Long,
+     val username: String,
+     val discriminator: String,
+     val password: String,
+     val serverIds: MutableSet<Long>
 ) : ISerializable, Principal {
 
     override fun save(database: Database) {

@@ -15,7 +15,7 @@ class SocketContext(
     private val userId: Long
 ) {
 
-    public val user: User
+     val user: User
         get() = server.Database.getUser(userId)!!
 
     suspend fun setup() {

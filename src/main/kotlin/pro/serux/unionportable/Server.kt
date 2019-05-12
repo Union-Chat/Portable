@@ -8,6 +8,7 @@ import io.ktor.auth.Authentication
 import io.ktor.auth.authenticate
 import io.ktor.auth.basic
 import io.ktor.auth.principal
+import io.ktor.features.StatusPages
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.cio.websocket.CloseReason
 import io.ktor.http.cio.websocket.DefaultWebSocketSession
@@ -37,24 +38,30 @@ import java.util.*
 
 class Server {
 
-    public val Database = Database(this)
-    public val contexts = hashSetOf<SocketContext>()
+     val Database = Database(this)
+     val contexts = hashSetOf<SocketContext>()
 
     fun start() {
         embeddedServer(Netty, 6969) {
+            install(StatusPages) {
+                exception<Throwable> {
+                    it.printStackTrace()
+                }
+            }
             install(WebSockets)
             install(Authentication) {
                 basic {
                     validate { credentials ->
                         val split = credentials.name.split("#")
-                        val username = split[0]
-                        val discrim = split[1]
+                        //val username = split[0]
+                        //val discriminator = split[1]
+                        val (username, discriminator) = split
 
-                        if (!Database.checkAuthentication(username, discrim, credentials.password)) {
+                        if (!Database.checkAuthentication(username, discriminator, credentials.password)) {
                             return@validate null
                         }
 
-                        return@validate Database.getUser(username, discrim)
+                        return@validate Database.getUser(username, discriminator)
                     }
                 }
             }
@@ -103,9 +110,9 @@ class Server {
 
                         val author = call.principal<User>()!!
 
-                        //if (!author.serverIds.contains(serverId)) {
-                        //    return@post call.respondError(403, "You do not have access to the requested server.")
-                        //}
+                        if (!author.serverIds.contains(serverId)) {
+                            return@post call.respondError(403, "You do not have access to the requested server.")
+                        }
 
                         val payload = call.receiveJson() ?: return@post
 
@@ -117,13 +124,10 @@ class Server {
                             )
                         )
 
-                        println("sending")
-
                         for (context in contexts) {
-                            println(context)
-                            //if (context.user.serverIds.contains(serverId)) {
+                            if (context.user.serverIds.contains(serverId)) {
                                 context.send(message)
-                            //}
+                            }
                         }
 
                         call.respond(HttpStatusCode.NoContent)
@@ -139,11 +143,11 @@ class Server {
             ?: URLDecoder.decode(call.request.header("sec-websocket-protocol") ?: "", Charset.defaultCharset())
             ?: return null
 
-        try {
-            return Database.authenticate(header)
+        return try {
+            Database.authenticate(header)
         } catch (e: Exception) {
             e.printStackTrace()
-            return null
+            null
         }
     }
 

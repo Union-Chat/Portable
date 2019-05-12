@@ -1,10 +1,12 @@
 package pro.serux.unionportable
 
 import io.ktor.application.ApplicationCall
+import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.request.receiveText
 import io.ktor.response.header
 import io.ktor.response.respond
+import io.ktor.response.respondText
 import org.json.JSONException
 import org.json.JSONObject
 
@@ -28,8 +30,7 @@ suspend fun ApplicationCall.respondError(code: Int, message: String) {
         )
     )
 
-    this.response.header("Content-Type", "application/json")
-    this.respond(HttpStatusCode.fromValue(code), errorResponse.toString())
+    this.respondText(errorResponse.toString(), ContentType.Application.Json, HttpStatusCode.fromValue(code))
 }
 
 suspend fun ApplicationCall.receiveJson(): JSONObject? {

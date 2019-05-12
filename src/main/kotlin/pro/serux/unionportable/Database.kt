@@ -13,7 +13,7 @@ class Database(private val server: Server) {
     private val hasher = BCrypt.withDefaults()
     private val verifier = BCrypt.verifyer()
 
-    public val connection: Connection
+     val connection: Connection
         get() = pool.connection
 
     init {
@@ -25,7 +25,7 @@ class Database(private val server: Server) {
         println(getUser("Devoxin", "0001"))
     }
 
-    public fun initDatabase() {
+     fun initDatabase() {
         connection.use {
             val stmt = it.createStatement()
 
@@ -36,7 +36,7 @@ class Database(private val server: Server) {
         }
     }
 
-    public fun authenticate(auth: String): User? {
+     fun authenticate(auth: String): User? {
         val parts = auth.split(" ")
 
         if (parts.size < 2 || parts[0] != "Basic") {
@@ -64,7 +64,7 @@ class Database(private val server: Server) {
         return null
     }
 
-    public fun checkAuthentication(username: String, discriminator: String, password: String): Boolean {
+     fun checkAuthentication(username: String, discriminator: String, password: String): Boolean {
         val user = getUser(username, discriminator) ?: return false
         val result = verifier.verify(password.toCharArray(), user.password.toCharArray())
 
@@ -72,7 +72,7 @@ class Database(private val server: Server) {
         return result.verified
     }
 
-    public fun getUser(id: Long): User? {
+     fun getUser(id: Long): User? {
         connection.use {
             val stmt = it.prepareStatement("SELECT * FROM users WHERE id = ?")
             stmt.setLong(1, id)
@@ -87,7 +87,7 @@ class Database(private val server: Server) {
         }
     }
 
-    public fun getUser(username: String, discriminator: String): User? {
+     fun getUser(username: String, discriminator: String): User? {
         connection.use {
             val stmt = it.prepareStatement("SELECT * FROM users WHERE username = ? AND discriminator = ?")
             stmt.setString(1, username)
@@ -103,7 +103,7 @@ class Database(private val server: Server) {
         }
     }
 
-    public fun createUser(json: JSONObject): String {
+     fun createUser(json: JSONObject): String {
         val username = json.getString("username")
         val password = json.getString("password")
         val encryptedPassword = hasher.hashToString(10, password.toCharArray())
@@ -123,7 +123,11 @@ class Database(private val server: Server) {
         return "$username#0001" // TODO
     }
 
-    public fun addServer(userId: Long, serverId: Long) {
+    fun createServer(json: JSONObject): Boolean {
+
+    }
+
+     fun addServer(userId: Long, serverId: Long) {
         val u = getUser(userId) ?: return // TODO: Throw
         u.serverIds.add(serverId)
         u.save(this)
