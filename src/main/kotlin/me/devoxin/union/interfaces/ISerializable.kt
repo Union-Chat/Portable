@@ -1,7 +1,7 @@
-package pro.serux.unionportable.interfaces
+package me.devoxin.union.interfaces
 
 import org.json.JSONObject
-import pro.serux.unionportable.Database
+import me.devoxin.union.Database
 
 interface ISerializable {
 

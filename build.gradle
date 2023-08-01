@@ -1,8 +1,8 @@
 plugins {
-    id 'org.jetbrains.kotlin.jvm' version '1.3.21'
+    id 'org.jetbrains.kotlin.jvm' version '1.6.10'
 }
 
-group 'pro.serux'
+group 'me.devoxin'
 version '1.0'
 
 repositories {
@@ -11,24 +11,19 @@ repositories {
 }
 
 dependencies {
-    ext {
-        ktor_version = "1.1.3"
-    }
+    def ktor_version = '1.6.8'
 
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
-    compile "io.ktor:ktor-server-netty:$ktor_version"
-    compile "io.ktor:ktor-websockets:$ktor_version"
-    compile "io.ktor:ktor-auth:$ktor_version"
-    compile 'org.xerial:sqlite-jdbc:3.25.2'
-    compile 'com.zaxxer:HikariCP:3.3.1'
-    compile 'org.json:json:20180813'
-    compile 'at.favre.lib:bcrypt:0.7.0'
-    compile 'xyz.downgoon:snowflake:1.0.0'
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.6.10"
+    implementation "io.ktor:ktor-server-netty:$ktor_version"
+    implementation "io.ktor:ktor-websockets:$ktor_version"
+    implementation "io.ktor:ktor-auth:$ktor_version"
+    implementation 'org.xerial:sqlite-jdbc:3.42.0.0'
+    implementation 'com.zaxxer:HikariCP:5.0.1'
+    implementation 'org.json:json:20230227'
+    implementation 'at.favre.lib:bcrypt:0.10.2'
+    implementation 'xyz.downgoon:snowflake:1.0.0'
 }
 
 compileKotlin {
-    kotlinOptions.jvmTarget = "1.8"
-}
-compileTestKotlin {
     kotlinOptions.jvmTarget = "1.8"
 }

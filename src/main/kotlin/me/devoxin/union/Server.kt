@@ -1,4 +1,4 @@
-package pro.serux.unionportable
+package me.devoxin.union
 
 import io.ktor.application.ApplicationCall
 import io.ktor.application.ApplicationCallPipeline
@@ -29,16 +29,15 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.websocket.WebSockets
 import io.ktor.websocket.webSocket
+import jdk.internal.org.jline.utils.Colors.h
 import org.json.JSONObject
-import pro.serux.unionportable.entities.User
+import me.devoxin.union.entities.User
 import java.io.File
 import java.net.URLDecoder
 import java.nio.charset.Charset
 import java.util.*
 
-class Server {
-
-     val Database = Database(this)
+object Server {
      val contexts = hashSetOf<SocketContext>()
 
     fun start() {
@@ -52,23 +51,19 @@ class Server {
             install(Authentication) {
                 basic {
                     validate { credentials ->
-                        val split = credentials.name.split("#")
-                        //val username = split[0]
-                        //val discriminator = split[1]
-                        val (username, discriminator) = split
+                        val username = credentials.name
 
-                        if (!Database.checkAuthentication(username, discriminator, credentials.password)) {
+                        if (!Database.checkAuthentication(username, credentials.password)) {
                             return@validate null
                         }
 
-                        return@validate Database.getUser(username, discriminator)
+                        return@validate Database.getUser(username)
                     }
                 }
             }
             intercept(ApplicationCallPipeline.Call) {
-                val h = call.request.header("sec-websocket-protocol")
-                if (h != null) {
-                    call.response.header("sec-websocket-protocol", h)
+                call.request.header("sec-websocket-protocol")?.let {
+                    call.response.header("sec-websocket-protocol", it)
                 }
 
                 this.proceed()

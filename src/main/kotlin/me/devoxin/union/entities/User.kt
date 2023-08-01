@@ -1,22 +1,21 @@
-package pro.serux.unionportable.entities
+package me.devoxin.union.entities
 
 import io.ktor.auth.Principal
 import org.json.JSONObject
-import pro.serux.unionportable.Database
-import pro.serux.unionportable.interfaces.ISerializable
+import me.devoxin.union.Database
+import me.devoxin.union.interfaces.ISerializable
 import java.sql.ResultSet
 
 data class User(
      val id: Long,
      val username: String,
-     val discriminator: String,
      val password: String,
      val serverIds: MutableSet<Long>
 ) : ISerializable, Principal {
 
     override fun save(database: Database) {
         database.connection.use {
-            val stmt = it.prepareStatement("UPDATE users SET serverIds = ? WHERE id = ?")
+            val stmt = it.prepareStatement("UPDATE users SET server_ids = ? WHERE id = ?")
             stmt.setString(1, serverIds.joinToString(","))
             stmt.setLong(2, id)
 
@@ -28,18 +27,15 @@ data class User(
         return JSONObject(
             mapOf(
                 "id" to id.toString(),
-                "username" to username,
-                "discriminator" to discriminator
+                "username" to username
             )
         )
     }
 
     companion object {
-
         fun from(resultSet: ResultSet): User {
             val id = resultSet.getLong("id")
             val name = resultSet.getString("username")
-            val discrim = resultSet.getString("discriminator")
             val password = resultSet.getString("password")
             val serverIds = resultSet.getString("serverIds")
                 .split(",")
@@ -47,9 +43,7 @@ data class User(
                 .map { it.toLong() }
                 .toMutableSet()
 
-            return User(id, name, discrim, password, serverIds)
+            return User(id, name, password, serverIds)
         }
-
     }
-
 }

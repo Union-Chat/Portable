@@ -1,4 +1,4 @@
-package pro.serux.unionportable
+package me.devoxin.union
 
 
 fun main() {

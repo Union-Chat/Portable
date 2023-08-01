@@ -1,23 +1,21 @@
-package pro.serux.unionportable
+package me.devoxin.union
 
-import io.ktor.http.cio.websocket.CloseReason
-import io.ktor.http.cio.websocket.DefaultWebSocketSession
-import io.ktor.http.cio.websocket.Frame
-import io.ktor.http.cio.websocket.close
+import io.ktor.http.cio.websocket.*
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.channels.mapNotNull
 import org.json.JSONObject
-import pro.serux.unionportable.entities.User
+import me.devoxin.union.entities.User
 
 class SocketContext(
     private val server: Server,
     private val socketSession: DefaultWebSocketSession,
     private val userId: Long
 ) {
-
      val user: User
-        get() = server.Database.getUser(userId)!!
+        get() = Database.getUser(userId)!!
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     suspend fun setup() {
         socketSession.outgoing.invokeOnClose {
             server.destroyContext(this)
@@ -31,14 +29,16 @@ class SocketContext(
     }
 
     suspend fun send(obj: JSONObject) {
-        socketSession.outgoing.send(
-            Frame.Text(obj.toString())
-        )
+        socketSession.outgoing.send(Frame.Text(obj.toString()))
     }
 
     private suspend fun startListening() {
-        socketSession.incoming.mapNotNull { it as? Frame.Text }.consumeEach {
-            //handleMessage(it.readText())
+        socketSession.incoming.consumeEach {
+            if (it !is Frame.Text || !it.fin) {
+                return@consumeEach
+            }
+
+            handleMessage(it.readText())
         }
     }
 
@@ -54,5 +54,4 @@ class SocketContext(
             "send" -> server.dispatch(json.getString("d"))
         }
     }
-
 }

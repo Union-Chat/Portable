@@ -1,4 +1,4 @@
-package pro.serux.unionportable
+package me.devoxin.union
 
 import io.ktor.application.ApplicationCall
 import io.ktor.http.ContentType
