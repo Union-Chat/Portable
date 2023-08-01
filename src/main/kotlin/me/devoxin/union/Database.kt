@@ -29,7 +29,7 @@ object Database {
     private fun initDatabase() {
         connection.use {
             it.createStatement().apply {
-                addBatch("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username VARCHAR(32), hashed_password TEXT, server_ids TEXT DEFAULT '', UNIQUE(name), check(length(username) <= 32))")
+                addBatch("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username VARCHAR(32), hashed_password TEXT, server_ids TEXT DEFAULT '', UNIQUE(username), check(length(username) <= 32))")
                 addBatch("CREATE TABLE IF NOT EXISTS guilds (id INTEGER PRIMARY KEY, owner_id INTEGER)")
                 addBatch("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
             }.executeBatch()
