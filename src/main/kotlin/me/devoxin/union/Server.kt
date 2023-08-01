@@ -16,26 +16,22 @@ import io.ktor.http.cio.websocket.close
 import io.ktor.http.content.files
 import io.ktor.http.content.static
 import io.ktor.request.header
-import io.ktor.request.receiveText
 import io.ktor.response.header
 import io.ktor.response.respond
 import io.ktor.response.respondFile
 import io.ktor.response.respondText
 import io.ktor.routing.get
 import io.ktor.routing.post
-import io.ktor.routing.route
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.websocket.WebSockets
 import io.ktor.websocket.webSocket
-import jdk.internal.org.jline.utils.Colors.h
 import org.json.JSONObject
 import me.devoxin.union.entities.User
 import java.io.File
 import java.net.URLDecoder
 import java.nio.charset.Charset
-import java.util.*
 
 object Server {
      val contexts = hashSetOf<SocketContext>()
