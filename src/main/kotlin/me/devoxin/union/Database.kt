@@ -142,7 +142,7 @@ object Database {
                     break
                 }
 
-                userId = snowflake.nextId() // so regenerate
+                userId = snowflake.nextId()
             }
         }
 
