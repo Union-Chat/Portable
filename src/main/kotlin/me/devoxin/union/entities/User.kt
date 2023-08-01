@@ -12,14 +12,15 @@ data class User(
      val password: String,
      val serverIds: MutableSet<Long>
 ) : ISerializable, Principal {
+    val guilds: Set<Guild>
+        get() = Database.getGuilds(serverIds)
 
     override fun save(database: Database) {
         database.connection.use {
-            val stmt = it.prepareStatement("UPDATE users SET server_ids = ? WHERE id = ?")
-            stmt.setString(1, serverIds.joinToString(","))
-            stmt.setLong(2, id)
-
-            stmt.execute()
+            it.prepareStatement("UPDATE users SET server_ids = ? WHERE id = ?").apply {
+                setString(1, serverIds.joinToString(","))
+                setLong(2, id)
+            }.execute()
         }
     }
 
@@ -36,9 +37,10 @@ data class User(
         fun from(resultSet: ResultSet): User {
             val id = resultSet.getLong("id")
             val name = resultSet.getString("username")
-            val password = resultSet.getString("password")
-            val serverIds = resultSet.getString("serverIds")
+            val password = resultSet.getString("hashed_password")
+            val serverIds = resultSet.getString("server_ids")
                 .split(",")
+                .asSequence()
                 .filterNot { it.isEmpty() }
                 .map { it.toLong() }
                 .toMutableSet()

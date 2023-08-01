@@ -27,11 +27,13 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.websocket.WebSockets
 import io.ktor.websocket.webSocket
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import org.json.JSONObject
 import me.devoxin.union.entities.User
 import java.io.File
 import java.net.URLDecoder
 import java.nio.charset.Charset
+import java.time.Instant
 
 object Server {
      val contexts = hashSetOf<SocketContext>()
@@ -70,8 +72,13 @@ object Server {
                     files("assets")
                 }
 
+                static("/img") {
+                    files("assets/img")
+                }
+
                 webSocket("/gateway") {
                     println("Incoming connection")
+
                     val user = authenticate(call)
                         ?: return@webSocket close(CloseReason(4001, "Invalid credentials"))
 
@@ -86,8 +93,16 @@ object Server {
                 post("/api/create") {
                     val body = call.receiveJson() ?: return@post
 
+                    if (!body.has("username") || !body.has("password")) {
+                        return@post call.respondError(400, "Missing 'username' and/or 'password' fields.")
+                    }
+
+                    if (body.getString("username").isEmpty() || body.getString("password").isEmpty()) {
+                        return@post call.respondError(400, "'Username' and/or 'password' must not be empty!")
+                    }
+
                     try {
-                        val user = Database.createUser(JSONObject(body))
+                        val user = Database.createUser(body)
                         call.respondText(user)
                     } catch (e: Exception) {
                         call.respondError(500, e.localizedMessage)
@@ -95,6 +110,12 @@ object Server {
                 }
 
                 authenticate {
+                    post("/api/server") {
+                        val payload = call.receiveJson() ?: return@post
+                        val owner = call.principal<User>()!!
+                        Database.createServer(owner.id, payload)
+                    }
+
                     post("/api/server/{id}/messages") {
                         val serverId = call.parameters["id"]?.toLongOrNull()
                             ?: return@post call.respondError(400, "id must be an integer")
@@ -109,15 +130,19 @@ object Server {
 
                         val message = JSONObject(
                             mapOf(
+                                "content" to payload.getString("content"),
                                 "server" to call.parameters["id"],
                                 "author" to author.toJson(),
-                                "content" to payload.getString("content")
+                                "createdAt" to Instant.now().toEpochMilli()
                             )
                         )
 
                         for (context in contexts) {
                             if (context.user.serverIds.contains(serverId)) {
-                                context.send(message)
+                                context.sendJson(
+                                    "op" to OpCode.MESSAGE.ordinal,
+                                    "d" to message
+                                )
                             }
                         }
 
@@ -135,35 +160,45 @@ object Server {
             ?: return null
 
         return try {
-            Database.authenticate(header)
+            Database.authenticate(header, skipTypeCheck = call.request.header("authorization") == null)
         } catch (e: Exception) {
             e.printStackTrace()
             null
         }
     }
 
-    suspend fun createContext(session: DefaultWebSocketSession, user: User) {
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private suspend fun createContext(session: DefaultWebSocketSession, user: User) {
         val context = SocketContext(this, session, user.id)
+        session.outgoing.invokeOnClose { destroyContext(context) }
+
         contexts.add(context)
         context.setup()
     }
 
-    fun destroyContext(context: SocketContext) {
+    private fun destroyContext(context: SocketContext) {
         println("Destroying socket context")
         contexts.remove(context)
     }
 
-    suspend fun dispatch(data: String) {
-        contexts.forEach {
-            it.send(
-                JSONObject(
-                    mapOf(
-                        "op" to "broadcast",
-                        "d" to data
-                    )
-                )
+    suspend fun dispatchToUser(userId: Long, op: OpCode, data: String) {
+        contexts.find { it.userId == userId }?.sendJson(
+            "op" to op.ordinal,
+            "d" to data
+        )
+    }
+
+    suspend fun dispatch(clients: Set<SocketContext>, op: OpCode, data: String) {
+        clients.forEach {
+            it.sendJson(
+                "op" to op.ordinal,
+                "d" to data
             )
         }
+    }
+
+    suspend fun broadcast(op: OpCode, data: String) {
+        dispatch(contexts, op, data)
     }
 
 }

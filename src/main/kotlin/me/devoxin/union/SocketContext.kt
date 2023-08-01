@@ -6,21 +6,30 @@ import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.channels.mapNotNull
 import org.json.JSONObject
 import me.devoxin.union.entities.User
+import org.json.JSONArray
 
 class SocketContext(
     private val server: Server,
     private val socketSession: DefaultWebSocketSession,
-    private val userId: Long
+    val userId: Long
 ) {
      val user: User
         get() = Database.getUser(userId)!!
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     suspend fun setup() {
-        socketSession.outgoing.invokeOnClose {
-            server.destroyContext(this)
+        val guildJson = JSONArray()
+
+        for (guild in user.guilds) {
+            guildJson.put(guild.toJson())
         }
 
+        sendJson(
+            "op" to OpCode.HELLO.ordinal,
+            "d" to mapOf(
+                "user" to user.toJson(),
+                "servers" to guildJson
+            )
+        )
         startListening()
     }
 
@@ -30,6 +39,11 @@ class SocketContext(
 
     suspend fun send(obj: JSONObject) {
         socketSession.outgoing.send(Frame.Text(obj.toString()))
+    }
+
+    suspend fun sendJson(vararg data: Pair<String, Any>) {
+        val serialized = JSONObject(mapOf(*data))
+        send(serialized)
     }
 
     private suspend fun startListening() {
@@ -51,7 +65,7 @@ class SocketContext(
         }
 
         when (json.getString("op")) {
-            "send" -> server.dispatch(json.getString("d"))
+            //"send" -> server.dispatch(json.getString("d"))
         }
     }
 }

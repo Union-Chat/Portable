@@ -2,6 +2,7 @@ package me.devoxin.union
 
 import at.favre.lib.crypto.bcrypt.BCrypt
 import com.zaxxer.hikari.HikariDataSource
+import me.devoxin.union.entities.Guild
 import org.json.JSONObject
 import me.devoxin.union.entities.User
 import xyz.downgoon.snowflake.Snowflake
@@ -30,20 +31,23 @@ object Database {
         connection.use {
             it.createStatement().apply {
                 addBatch("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username VARCHAR(32), hashed_password TEXT, server_ids TEXT DEFAULT '', UNIQUE(username), check(length(username) <= 32))")
-                addBatch("CREATE TABLE IF NOT EXISTS guilds (id INTEGER PRIMARY KEY, owner_id INTEGER)")
+                addBatch("CREATE TABLE IF NOT EXISTS guilds (id INTEGER PRIMARY KEY, name VARCHAR(32), owner_id INTEGER, UNIQUE(name, owner_id), check(length(name) <= 32))")
                 addBatch("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+                addBatch("CREATE INDEX IF NOT EXISTS idx_guilds_name ON guilds(name)")
+                addBatch("CREATE INDEX IF NOT EXISTS idx_guilds_ownerid ON guilds(owner_id)")
             }.executeBatch()
         }
     }
 
-    fun authenticate(auth: String): User? {
-        val parts = auth.split(" ")
+    fun authenticate(encoded: String, skipTypeCheck: Boolean = false): User? {
+        val parts = encoded.split(" ")
 
-        if (parts.size < 2 || parts[0] != "Basic") {
+        if (!skipTypeCheck && (parts.size < 2 || parts[0] != "Basic")) {
             return null
         }
 
-        val decoded = String(Base64.getDecoder().decode(parts[1])).split(':')
+        val auth = parts.lastOrNull() ?: return null
+        val decoded = String(Base64.getDecoder().decode(auth)).split(':')
 
         if (decoded.size != 2) {
             return null // USERNAME:PASSWORD
@@ -97,13 +101,50 @@ object Database {
         }
     }
 
+    fun getGuild(id: Long): Guild? {
+        connection.use {
+            val stmt = it.prepareStatement("SELECT id, name, owner_id" +
+                    " FROM guilds WHERE id = ?")
+            stmt.setLong(1, id)
+
+            val result = stmt.executeQuery()
+
+            if (!result.next()) {
+                return null
+            }
+
+            return Guild.from(result)
+        }
+    }
+
+    fun getGuilds(serverIds: Set<Long>): Set<Guild> {
+        val guilds = hashSetOf<Guild>()
+
+        connection.use {
+            for (id in serverIds) {
+                val stmt = it.prepareStatement("SELECT id, name, owner_id" +
+                        " FROM guilds WHERE id = ?")
+                stmt.setLong(1, id)
+
+                val result = stmt.executeQuery()
+
+                while (result.next()) {
+                    guilds.add(Guild.from(result))
+                }
+            }
+        }
+
+        return guilds
+    }
+
     fun createUser(json: JSONObject): String {
         val username = json.getString("username")
         val hashedPassword = hasher.hashToString(10, json.getString("password").toCharArray())
-        val id = generateUniqueUserId()
+
+        val id = generateUniqueId("users")
         // TODO: check for existing users.
 
-        pool.connection.use {
+        connection.use {
             val stmt = it.prepareStatement("INSERT INTO users(id, username, hashed_password) VALUES (?, ?, ?)")
             stmt.setLong(1, id)
             stmt.setString(2, username)
@@ -114,25 +155,40 @@ object Database {
         return username
     }
 
-    fun createServer(json: JSONObject): Boolean {
-        TODO()
+    suspend fun createServer(ownerId: Long, json: JSONObject): Boolean {
+        val name = json.getString("name")
+        val id = generateUniqueId("guilds")
+
+        connection.use {
+            val stmt = it.prepareStatement("INSERT INTO guilds(id, name, owner_id) VALUES (?, ?, ?)")
+            stmt.setLong(1, id)
+            stmt.setString(2, name)
+            stmt.setLong(3, ownerId)
+            stmt.execute()
+        }
+
+        addServer(ownerId, id)
+        return true
     }
 
-    fun addServer(userId: Long, serverId: Long) {
+    suspend fun addServer(userId: Long, serverId: Long) {
         val u = getUser(userId) ?: throw IllegalStateException("Cannot add non-existent user to server!")
 
         //validate server exists?
         //possibly optimise by making this one call, also.
         u.serverIds.add(serverId)
         u.save(this)
+
+        val serverInfo = getGuild(serverId) ?: return
+        Server.dispatchToUser(userId, OpCode.SERVER_JOIN, serverInfo.toJson().toString())
     }
 
-    private fun generateUniqueUserId(): Long {
+    private fun generateUniqueId(table: String): Long {
         var userId = snowflake.nextId()
 
         connection.use {
             while (true) {
-                val stmt = it.prepareStatement("SELECT (COUNT(id) > 0) FROM users WHERE id = ?")
+                val stmt = it.prepareStatement("SELECT (COUNT(id) > 0) FROM $table WHERE id = ?")
                 stmt.setLong(1, userId)
 
                 val result = stmt.executeQuery()
