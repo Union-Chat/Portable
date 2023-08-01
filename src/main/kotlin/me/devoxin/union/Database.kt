@@ -26,16 +26,13 @@ object Database {
         }
     }
 
-    fun initDatabase() {
+    private fun initDatabase() {
         connection.use {
-            val stmt = it.createStatement()
-
-            stmt.addBatch("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username VARCHAR(32), hashed_password TEXT, server_ids TEXT DEFAULT '', UNIQUE(name), check(length(username) <= 32))")
-            stmt.addBatch("CREATE TABLE IF NOT EXISTS guilds (id INTEGER PRIMARY KEY, owner_id INTEGER)")
-            stmt.addBatch("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
-
-
-            stmt.executeBatch()
+            it.createStatement().apply {
+                addBatch("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username VARCHAR(32), hashed_password TEXT, server_ids TEXT DEFAULT '', UNIQUE(name), check(length(username) <= 32))")
+                addBatch("CREATE TABLE IF NOT EXISTS guilds (id INTEGER PRIMARY KEY, owner_id INTEGER)")
+                addBatch("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+            }.executeBatch()
         }
     }
 
