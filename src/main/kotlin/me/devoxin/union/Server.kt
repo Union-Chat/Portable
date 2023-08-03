@@ -30,13 +30,15 @@ import io.ktor.websocket.webSocket
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import org.json.JSONObject
 import me.devoxin.union.entities.User
+import me.devoxin.union.enums.OpCode
+import me.devoxin.union.enums.Table
 import java.io.File
 import java.net.URLDecoder
 import java.nio.charset.Charset
 import java.time.Instant
 
 object Server {
-     val contexts = hashSetOf<SocketContext>()
+     private val contexts = hashSetOf<SocketContext>()
 
     fun start() {
         embeddedServer(Netty, 6969) {
@@ -76,13 +78,15 @@ object Server {
                     files("assets/img")
                 }
 
-                webSocket("/gateway") {
-                    println("Incoming connection")
+                static("/ugc") {
+                    files("assets/ugc")
+                }
 
+                webSocket("/gateway") {
                     val user = authenticate(call)
                         ?: return@webSocket close(CloseReason(4001, "Invalid credentials"))
 
-                    println("Creating websocket context for ${user.username}")
+                    println("Creating websocket context for user \"${user.username}\"")
                     createContext(this, user)
                 }
 
@@ -94,36 +98,79 @@ object Server {
                     val body = call.receiveJson() ?: return@post
 
                     if (!body.has("username") || !body.has("password")) {
-                        return@post call.respondError(400, "Missing 'username' and/or 'password' fields.")
+                        return@post call.respondError(HttpStatusCode.BadRequest, "Missing 'username' and/or 'password' fields.")
                     }
 
                     if (body.getString("username").isEmpty() || body.getString("password").isEmpty()) {
-                        return@post call.respondError(400, "'Username' and/or 'password' must not be empty!")
+                        return@post call.respondError(HttpStatusCode.BadRequest, "'Username' and/or 'password' must not be empty!")
                     }
 
                     try {
                         val user = Database.createUser(body)
                         call.respondText(user)
                     } catch (e: Exception) {
-                        call.respondError(500, e.localizedMessage)
+                        call.respondError(HttpStatusCode.InternalServerError, e.localizedMessage)
                     }
                 }
 
                 authenticate {
+                    post("/api/invites/{code}") {
+                        val code = call.parameters["code"]
+                            ?: return@post call.respondError(HttpStatusCode.BadRequest, "code must be specified")
+
+                        val acceptor = call.principal<User>()!!
+
+                        val guild = Database.getGuildByInvite(code)
+                            ?: return@post call.respondError(HttpStatusCode.NotFound, "invalid code")
+
+                        if (guild.id in acceptor.guildIds) {
+                            return@post call.respondError(HttpStatusCode.BadRequest, "you are already in this server")
+                        }
+
+                        acceptor.guildIds.add(guild.id)
+                        acceptor.save()
+
+                        dispatchToUser(acceptor.id, OpCode.SERVER_JOIN, guild.toJson())
+                    }
+
                     post("/api/server") {
                         val payload = call.receiveJson() ?: return@post
                         val owner = call.principal<User>()!!
-                        Database.createServer(owner.id, payload)
+
+                        val guildInfo = Database.createGuild(owner.id, payload)
+                            ?: return@post call.respondError(HttpStatusCode.BadRequest, "server not found")
+
+                        dispatchToUser(owner.id, OpCode.SERVER_JOIN, guildInfo.toJson())
+                        // Perhaps we should respond with the guild info here...?
+                        call.respond(HttpStatusCode.NoContent)
+                    }
+
+                    post("/api/server/{id}/invites") {
+                        val guildId = call.parameters["id"]?.toLongOrNull()
+                            ?: return@post call.respondError(HttpStatusCode.BadRequest, "id must be a snowflake")
+
+                        val creator = call.principal<User>()!!
+
+                        if (!Database.exists(Table.GUILDS, guildId)) {
+                            return@post call.respondError(HttpStatusCode.NotFound, "server not found")
+                        }
+
+                        val inviteCode = Database.createGuildInvite(guildId, creator.id)
+                        call.respond(inviteCode)
                     }
 
                     post("/api/server/{id}/messages") {
-                        val serverId = call.parameters["id"]?.toLongOrNull()
-                            ?: return@post call.respondError(400, "id must be an integer")
+                        val guildId = call.parameters["id"]?.toLongOrNull()
+                            ?: return@post call.respondError(HttpStatusCode.BadRequest, "id must be a snowflake")
+
+                        if (!Database.exists(Table.GUILDS, guildId)) {
+                            return@post call.respondError(HttpStatusCode.NotFound, "server not found")
+                        }
 
                         val author = call.principal<User>()!!
 
-                        if (!author.serverIds.contains(serverId)) {
-                            return@post call.respondError(403, "You do not have access to the requested server.")
+                        if (!author.guildIds.contains(guildId)) {
+                            return@post call.respondError(HttpStatusCode.Forbidden, "You do not have access to the requested server.")
                         }
 
                         val payload = call.receiveJson() ?: return@post
@@ -138,7 +185,7 @@ object Server {
                         )
 
                         for (context in contexts) {
-                            if (context.user.serverIds.contains(serverId)) {
+                            if (context.user.guildIds.contains(guildId)) {
                                 context.sendJson(
                                     "op" to OpCode.MESSAGE.ordinal,
                                     "d" to message
@@ -181,14 +228,14 @@ object Server {
         contexts.remove(context)
     }
 
-    suspend fun dispatchToUser(userId: Long, op: OpCode, data: String) {
+    suspend fun dispatchToUser(userId: Long, op: OpCode, data: Any) {
         contexts.find { it.userId == userId }?.sendJson(
             "op" to op.ordinal,
             "d" to data
         )
     }
 
-    suspend fun dispatch(clients: Set<SocketContext>, op: OpCode, data: String) {
+    suspend fun dispatch(clients: Set<SocketContext>, op: OpCode, data: Any) {
         clients.forEach {
             it.sendJson(
                 "op" to op.ordinal,
@@ -197,8 +244,7 @@ object Server {
         }
     }
 
-    suspend fun broadcast(op: OpCode, data: String) {
+    suspend fun broadcast(op: OpCode, data: Any) {
         dispatch(contexts, op, data)
     }
-
 }

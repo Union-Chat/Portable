@@ -5,7 +5,7 @@ import me.devoxin.union.Database
 
 interface ISerializable {
 
-    fun save(database: Database)
+    fun save()
 
     fun toJson(): JSONObject
 

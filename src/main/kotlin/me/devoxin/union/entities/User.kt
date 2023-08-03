@@ -3,6 +3,7 @@ package me.devoxin.union.entities
 import io.ktor.auth.Principal
 import org.json.JSONObject
 import me.devoxin.union.Database
+import me.devoxin.union.enums.Table
 import me.devoxin.union.interfaces.ISerializable
 import java.sql.ResultSet
 
@@ -10,15 +11,15 @@ data class User(
      val id: Long,
      val username: String,
      val password: String,
-     val serverIds: MutableSet<Long>
+     val guildIds: MutableSet<Long>
 ) : ISerializable, Principal {
     val guilds: Set<Guild>
-        get() = Database.getGuilds(serverIds)
+        get() = Database.getGuilds(guildIds)
 
-    override fun save(database: Database) {
-        database.connection.use {
-            it.prepareStatement("UPDATE users SET server_ids = ? WHERE id = ?").apply {
-                setString(1, serverIds.joinToString(","))
+    override fun save() {
+        Database.connection.use {
+            it.prepareStatement("UPDATE ${Table.USERS.real} SET guild_ids = ? WHERE id = ?").apply {
+                setString(1, guildIds.joinToString(","))
                 setLong(2, id)
             }.execute()
         }
@@ -38,7 +39,7 @@ data class User(
             val id = resultSet.getLong("id")
             val name = resultSet.getString("username")
             val password = resultSet.getString("hashed_password")
-            val serverIds = resultSet.getString("server_ids")
+            val serverIds = resultSet.getString("guild_ids")
                 .split(",")
                 .asSequence()
                 .filterNot { it.isEmpty() }

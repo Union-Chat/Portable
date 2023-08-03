@@ -11,6 +11,8 @@ import org.json.JSONException
 import org.json.JSONObject
 
 
+private val CHAR_POOL = ('a'..'z') + ('A'..'Z') + ('0'..'9')
+
 /**
  * Attempts to convert a string into a JSON object, or returns null if an exception occurred
  * while parsing.
@@ -23,26 +25,30 @@ fun parseJson(data: String): JSONObject? {
     }
 }
 
-suspend fun ApplicationCall.respondError(code: Int, message: String) {
+fun generateArbitrary(length: Int): String {
+    return (0 until length).map { CHAR_POOL.random() }.joinToString("")
+}
+
+suspend fun ApplicationCall.respondError(code: HttpStatusCode, message: String) {
     val errorResponse = JSONObject(
         mapOf(
             "error" to message
         )
     )
 
-    this.respondText(errorResponse.toString(), ContentType.Application.Json, HttpStatusCode.fromValue(code))
+    this.respondText(errorResponse.toString(), ContentType.Application.Json, code)
 }
 
 suspend fun ApplicationCall.receiveJson(): JSONObject? {
     if (this.request.headers["content-type"] != "application/json") {
-        this.respondError(400, "Missing content-type header.")
+        this.respondError(HttpStatusCode.BadRequest, "Missing content-type header.")
         return null
     }
 
     return try {
         JSONObject(this.receiveText())
     } catch (e: JSONException) {
-        this.respondError(400, "The payload is either invalid, or not in the expected format.")
+        this.respondError(HttpStatusCode.BadRequest, "The payload is either invalid, or not in the expected format.")
         null
     }
 }

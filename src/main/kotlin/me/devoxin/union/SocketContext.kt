@@ -1,11 +1,10 @@
 package me.devoxin.union
 
 import io.ktor.http.cio.websocket.*
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.consumeEach
-import kotlinx.coroutines.channels.mapNotNull
 import org.json.JSONObject
 import me.devoxin.union.entities.User
+import me.devoxin.union.enums.OpCode
 import org.json.JSONArray
 
 class SocketContext(

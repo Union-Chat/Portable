@@ -1,4 +1,4 @@
-package me.devoxin.union
+package me.devoxin.union.enums
 
 enum class OpCode {
     UNUSED,
