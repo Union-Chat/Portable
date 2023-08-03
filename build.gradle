@@ -9,6 +9,7 @@ version '1.0'
 apply plugin: 'application'
 
 mainClassName = 'me.devoxin.union.MainKt'
+shadowJar.archiveFileName = "union.jar"
 
 repositories {
     jcenter()

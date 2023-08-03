@@ -39,17 +39,21 @@ object Database {
                         id INTEGER PRIMARY KEY,
                         username VARCHAR(32),
                         hashed_password TEXT,
+                        avatar_hash VARCHAR(25) DEFAULT '',
                         guild_ids TEXT DEFAULT '',
                         UNIQUE(username),
                         check(length(username) <= 32)
+                        check(length(avatar_hash) <= 25)
                     )""".trimIndent())
                 addBatch("""
                     CREATE TABLE IF NOT EXISTS ${Table.GUILDS.real} (
                         id INTEGER PRIMARY KEY,
                         name VARCHAR(32),
+                        icon_hash VARCHAR(25) DEFAULT '',
                         owner_id INTEGER,
                         UNIQUE(name, owner_id),
-                        check(length(name) <= 32)
+                        check(length(name) <= 32),
+                        check(length(icon_hash) <= 25)
                     )""")
                 addBatch("""
                     CREATE TABLE IF NOT EXISTS ${Table.GUILD_INVITES.real} (
@@ -101,14 +105,14 @@ object Database {
 
     fun checkAuthentication(username: String, password: String): Boolean {
         val user = getUser(username) ?: return false
-        val result = verifier.verify(password.toCharArray(), user.password.toCharArray())
+        val result = verifier.verify(password.toCharArray(), user.hashedPassword.toCharArray())
 
         return result.verified
     }
 
     fun getUser(id: Long): User? {
         connection.use {
-            val result = it.prepareStatement("SELECT id, username, hashed_password, guild_ids FROM ${Table.USERS.real} WHERE id = ?").apply {
+            val result = it.prepareStatement("SELECT id, username, hashed_password, avatar_hash, guild_ids FROM ${Table.USERS.real} WHERE id = ?").apply {
                 setLong(1, id)
             }.executeQuery()
 
@@ -122,7 +126,7 @@ object Database {
 
     fun getUser(username: String): User? {
         connection.use {
-            val result = it.prepareStatement("SELECT id, username, hashed_password, guild_ids FROM ${Table.USERS.real} WHERE username = ?").apply {
+            val result = it.prepareStatement("SELECT id, username, hashed_password, avatar_hash, guild_ids FROM ${Table.USERS.real} WHERE username = ?").apply {
                 setString(1, username)
             }.executeQuery()
 
@@ -136,7 +140,7 @@ object Database {
 
     fun getGuild(id: Long): Guild? {
         connection.use {
-            val result = it.prepareStatement("SELECT id, name, owner_id FROM ${Table.GUILDS.real} WHERE id = ?").apply {
+            val result = it.prepareStatement("SELECT id, name, icon_hash, owner_id FROM ${Table.GUILDS.real} WHERE id = ?").apply {
                 setLong(1, id)
             }.executeQuery()
 
@@ -157,32 +161,12 @@ object Database {
             return@use result.takeIf(ResultSet::next)?.getLong("guild_id")
         } ?: return null
 
-        connection.use {
-            val result = it.prepareStatement("SELECT id, name, owner_id FROM ${Table.GUILDS.real} WHERE id = ?").apply {
-                setLong(1, guildId)
-            }.executeQuery()
-
-            return result.takeIf(ResultSet::next)?.let(Guild::from)
-        }
+        return getGuild(guildId)
     }
 
     fun getGuilds(guildIds: Set<Long>): Set<Guild> {
-        val guilds = hashSetOf<Guild>()
-
-        for (id in guildIds) {
-            // TODO: Could probably make this one call
-            connection.use {
-                val result = it.prepareStatement("SELECT id, name, owner_id FROM ${Table.GUILDS.real} WHERE id = ?").apply {
-                    setLong(1, id)
-                }.executeQuery()
-
-                while (result.next()) {
-                    guilds.add(Guild.from(result))
-                }
-            }
-        }
-
-        return guilds
+        // TODO: Could probably make this one call
+        return guildIds.mapNotNull(::getGuild).toSet()
     }
 
     fun createUser(json: JSONObject): String {

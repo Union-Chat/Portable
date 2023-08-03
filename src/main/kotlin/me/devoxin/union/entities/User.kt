@@ -10,7 +10,8 @@ import java.sql.ResultSet
 data class User(
      val id: Long,
      val username: String,
-     val password: String,
+     val hashedPassword: String,
+     val avatarHash: String,
      val guildIds: MutableSet<Long>
 ) : ISerializable, Principal {
     val guilds: Set<Guild>
@@ -18,7 +19,7 @@ data class User(
 
     override fun save() {
         Database.connection.use {
-            it.prepareStatement("UPDATE ${Table.USERS.real} SET guild_ids = ? WHERE id = ?").apply {
+            it.prepareStatement("UPDATE ${Table.USERS.real} SET avatar_hash = ?, guild_ids = ? WHERE id = ?").apply {
                 setString(1, guildIds.joinToString(","))
                 setLong(2, id)
             }.execute()
@@ -29,7 +30,8 @@ data class User(
         return JSONObject(
             mapOf(
                 "id" to id.toString(),
-                "username" to username
+                "username" to username,
+                "avatar_hash" to avatarHash
             )
         )
     }
@@ -39,6 +41,7 @@ data class User(
             val id = resultSet.getLong("id")
             val name = resultSet.getString("username")
             val password = resultSet.getString("hashed_password")
+            val avatarHash = resultSet.getString("avatar_hash")
             val serverIds = resultSet.getString("guild_ids")
                 .split(",")
                 .asSequence()
@@ -46,7 +49,7 @@ data class User(
                 .map { it.toLong() }
                 .toMutableSet()
 
-            return User(id, name, password, serverIds)
+            return User(id, name, password, avatarHash, serverIds)
         }
     }
 }

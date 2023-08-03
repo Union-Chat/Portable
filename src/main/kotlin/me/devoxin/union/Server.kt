@@ -74,6 +74,10 @@ object Server {
                     files("assets")
                 }
 
+                static("/emoji") {
+                    files("assets/emoji")
+                }
+
                 static("/img") {
                     files("assets/img")
                 }
@@ -83,11 +87,13 @@ object Server {
                 }
 
                 webSocket("/gateway") {
-                    val user = authenticate(call)
-                        ?: return@webSocket close(CloseReason(4001, "Invalid credentials"))
+                    runCatching {
+                        val user = authenticate(call)
+                            ?: return@webSocket close(CloseReason(4001, "Invalid credentials"))
 
-                    println("Creating websocket context for user \"${user.username}\"")
-                    createContext(this, user)
+                        println("Creating websocket context for user \"${user.username}\"")
+                        createContext(this, user)
+                    }.onFailure { it.printStackTrace() }
                 }
 
                 get("/") {
@@ -178,7 +184,7 @@ object Server {
                         val message = JSONObject(
                             mapOf(
                                 "id" to Database.generateId(), // TODO: Store messages and generate a unique ID with them?
-                                "content" to payload.getString("content"),
+                                "content" to payload.getString("content").trim(),
                                 "server" to call.parameters["id"],
                                 "author" to author.toJson(),
                                 "createdAt" to Instant.now().toEpochMilli()
@@ -225,7 +231,7 @@ object Server {
     }
 
     private fun destroyContext(context: SocketContext) {
-        println("Destroying socket context")
+        println("Destroying socket context for user \"${context.user.username}\"")
         contexts.remove(context)
     }
 
