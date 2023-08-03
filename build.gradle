@@ -6,6 +6,10 @@ plugins {
 group 'me.devoxin'
 version '1.0'
 
+apply plugin: 'application'
+
+mainClassName = 'me.devoxin.union.MainKt'
+
 repositories {
     jcenter()
     mavenCentral()
