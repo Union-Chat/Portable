@@ -256,4 +256,6 @@ object Database {
 
         return userId
     }
+
+    fun generateId() = snowflake.nextId()
 }

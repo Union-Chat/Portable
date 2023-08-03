@@ -177,6 +177,7 @@ object Server {
 
                         val message = JSONObject(
                             mapOf(
+                                "id" to Database.generateId(), // TODO: Store messages and generate a unique ID with them?
                                 "content" to payload.getString("content"),
                                 "server" to call.parameters["id"],
                                 "author" to author.toJson(),
