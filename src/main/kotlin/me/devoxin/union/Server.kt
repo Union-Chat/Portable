@@ -87,13 +87,11 @@ object Server {
                 }
 
                 webSocket("/gateway") {
-                    runCatching {
-                        val user = authenticate(call)
-                            ?: return@webSocket close(CloseReason(4001, "Invalid credentials"))
+                    val user = authenticate(call)
+                        ?: return@webSocket close(CloseReason(4001, "Invalid credentials"))
 
-                        println("Creating websocket context for user \"${user.username}\"")
-                        createContext(this, user)
-                    }.onFailure { it.printStackTrace() }
+                    println("Creating websocket context for user \"${user.username}\"")
+                    createContext(this, user)
                 }
 
                 get("/") {
